@@ -48,7 +48,7 @@ api.interceptors.response.use(
       try {
         // Trigger refresh request
         const response = await axios.post(
-          'http://localhost:5000/api/auth/refresh',
+          'https://vaultapi.developerruhban.online/api/auth/refresh',
           {},
           { withCredentials: true }
         );
