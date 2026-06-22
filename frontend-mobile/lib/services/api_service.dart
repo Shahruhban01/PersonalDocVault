@@ -4,7 +4,7 @@ import 'package:get/get.dart' as getx;
 /// API Service managing secure Dio-backed networking configurations.
 class ApiService extends getx.GetxService {
   late final Dio dio;
-  final String _baseUrl = 'http://localhost:5000/api';
+  final String _baseUrl = 'https://personal-doc-vault.vercel.app/api';
   String? _accessToken;
 
   /**
