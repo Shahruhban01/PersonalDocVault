@@ -1,0 +1,59 @@
+# GitHub Actions CI/CD Pipeline for Personal Vault
+
+name: Personal Vault CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # Job 1: Install dependencies, run test suites, verify static bundle compiling
+  test-and-build:
+    name: Test and Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Verify Backend Integrity (Install & Test)
+        run: |
+          cd backend
+          npm ci
+          npm test
+
+      - name: Verify React Frontend Build (Install & Build)
+        run: |
+          cd frontend-web
+          npm ci
+          npm run build
+
+  # Job 2: SSH into target production hosting server and trigger deploy script reloads
+  deploy:
+    name: Production Server Deploy
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Trigger Remote Deploy Script via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_SERVER_IP }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PROD_SERVER_PORT || 22 }}
+          script: |
+            cd /var/www/docvault
+            # Execute the deployment script
+            ./deployment/deploy.sh

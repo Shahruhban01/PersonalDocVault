@@ -1,0 +1,193 @@
+/* Premium color variables and base configurations */
+:root {
+  --primary-color: #66fcf1;
+  --secondary-color: #45a29e;
+  --bg-color: #0b0c10;
+  --surface-color: #1f2833;
+  --text-primary: #ffffff;
+  --text-muted: #c5c6c7;
+  --danger-color: #ff4d4d;
+  --warning-color: #ffc107;
+  --purple-color: #bd93f9;
+  --orange-color: #ffb86c;
+}
+
+body {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism panel configurations */
+.bg-glass {
+  background: rgba(31, 40, 51, 0.45) !important;
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Base application gradient container */
+.app-container {
+  background: radial-gradient(circle at top right, #1f2833 0%, #0b0c10 100%);
+  min-height: 100vh;
+}
+
+/* Text variables */
+.text-primary {
+  color: var(--primary-color) !important;
+}
+
+.text-light-muted {
+  color: var(--text-muted) !important;
+  opacity: 0.85;
+}
+
+/* Form input custom styles */
+.form-control, .form-select {
+  background-color: rgba(11, 12, 16, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: var(--text-primary) !important;
+  transition: all 0.3s ease;
+}
+
+.form-control::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.form-control:focus, .form-select:focus {
+  background-color: var(--surface-color) !important;
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 0.25rem rgba(102, 252, 241, 0.25) !important;
+}
+
+/* Custom premium buttons styling */
+.btn-primary {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: var(--bg-color) !important;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: #00e5ff !important;
+  border-color: #00e5ff !important;
+  box-shadow: 0 0 15px rgba(102, 252, 241, 0.4) !important;
+  transform: translateY(-1px);
+}
+
+.btn-outline-primary {
+  color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  background-color: transparent !important;
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--primary-color) !important;
+  color: var(--bg-color) !important;
+  box-shadow: 0 0 15px rgba(102, 252, 241, 0.3) !important;
+}
+
+.btn-outline-light:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Cards hover interactive animations */
+.card {
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease;
+  background-color: rgba(31, 40, 51, 0.3);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(102, 252, 241, 0.18) !important;
+}
+
+.hover-glass:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Badge custom types colors */
+.bg-purple {
+  background-color: var(--purple-color) !important;
+  color: var(--bg-color) !important;
+}
+
+.bg-orange {
+  background-color: var(--orange-color) !important;
+  color: var(--bg-color) !important;
+}
+
+/* Scrollbar customization */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-color);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary-color);
+}
+
+/* Table overrides */
+.table {
+  --bs-table-bg: transparent !important;
+  color: var(--text-primary) !important;
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+.focus-none:focus {
+  outline: none !important;
+}
+
+/* Responsive adjustments for Sidebar and Main panels */
+@media (max-width: 991px) {
+  /* Override main margins on mobile layout */
+  main {
+    margin-left: 0 !important;
+    padding: 1.5rem !important;
+  }
+
+  .bg-glass.position-fixed.start-0 {
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    margin-top: 70px !important;
+    width: 260px !important;
+  }
+
+  /* Slide in active sidebar when body has sidebar-open class */
+  .sidebar-open .bg-glass.position-fixed.start-0 {
+    transform: translateX(0);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  /* Show the backdrop overlay when sidebar is open on mobile */
+  .sidebar-open .sidebar-backdrop {
+    display: block !important;
+  }
+}
+
+/* Sidebar mobile backdrop — hidden by default, shown via JS class toggle */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+

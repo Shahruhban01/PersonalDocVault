@@ -1,0 +1,81 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Personal Vault API",
+    "description": "Enterprise-grade Zero-Knowledge Secure Document Management API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000/api",
+      "description": "Local Development Server"
+    }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "summary": "Register a new user account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "encryptionSalt"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" },
+                  "encryptionSalt": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User registered successfully" },
+          "400": { "description": "Validation error" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "User login authentication",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Authentication successful" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Refresh access token",
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Invalidate user session",
+        "responses": {
+          "200": { "description": "Logged out successfully" }
+        }
+      }
+    }
+  }
+}

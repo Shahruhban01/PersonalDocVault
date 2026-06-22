@@ -1,0 +1,670 @@
+openapi: 3.0.3
+info:
+  title: Personal Vault API
+  description: Enterprise-grade Zero-Knowledge Secure Document Management API
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000/api
+    description: Local Development Server
+  - url: https://api.personalvault.io/api
+    description: Production Server
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - encryptionSalt
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  description: Client-side derived password authentication key hex string
+                  example: b47a13d7e5d8a9f0e2b4c6d8...
+                encryptionSalt:
+                  type: string
+                  description: Randomly generated salt for key derivation
+                  example: b7c2d9a4e8f1c3d5a7b9e0f2c4a6b8d0
+      responses:
+        '201':
+          description: User registered successfully
+        '400':
+          description: Validation error
+
+  /auth/login:
+    post:
+      summary: User login authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Authentication successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                description: Refresh Token Cookie
+        '401':
+          description: Invalid email or password
+
+  /auth/refresh:
+    post:
+      summary: Refresh authentication access token
+      responses:
+        '200':
+          description: New Access Token returned
+        '401':
+          description: Invalid or expired refresh session
+
+  /auth/logout:
+    post:
+      summary: Invalidate user session
+      responses:
+        '200':
+          description: Logged out successfully
+
+  /auth/forgot-password:
+    post:
+      summary: Request password reset OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: OTP dispatched if account exists
+
+  /auth/otp/verify:
+    post:
+      summary: Verify MFA/Reset code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - recipient
+                - code
+                - actionType
+              properties:
+                recipient:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  example: "123456"
+                actionType:
+                  type: string
+                  enum: [registration, password_reset, mfa_login]
+      responses:
+        '200':
+          description: OTP match confirmed
+
+  /auth/change-password:
+    post:
+      summary: Update credentials
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newPassword
+                - newEncryptionSalt
+              properties:
+                newPassword:
+                  type: string
+                newEncryptionSalt:
+                  type: string
+      responses:
+        '200':
+          description: Password updated
+
+  /auth/devices:
+    get:
+      summary: List registered user devices
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+    delete:
+      summary: Revoke access for device ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device revoked
+
+  /vault/documents/upload:
+    post:
+      summary: Upload small document file
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                encryptedTitle:
+                  type: string
+                categoryId:
+                  type: string
+                folderId:
+                  type: string
+                checksum:
+                  type: string
+                encryptedFileKey:
+                  type: string
+                iv:
+                  type: string
+                authTag:
+                  type: string
+      responses:
+        '201':
+          description: Upload successful
+
+  /vault/documents/chunk/init:
+    post:
+      summary: Initiate resumable chunked upload
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - totalSize
+                - totalChunks
+                - fileMimeType
+              properties:
+                totalSize:
+                  type: integer
+                totalChunks:
+                  type: integer
+                fileMimeType:
+                  type: string
+      responses:
+        '200':
+          description: Init successful, session tokens returned
+
+  /vault/documents/chunk/upload:
+    post:
+      summary: Upload a block chunk
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                uploadId:
+                  type: string
+                chunkIndex:
+                  type: integer
+                chunk:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Chunk processed
+
+  /vault/documents/chunk/complete:
+    post:
+      summary: Complete chunk uploads and merge files
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - uploadId
+                - encryptedTitle
+                - categoryId
+                - checksum
+                - encryptedFileKey
+                - iv
+                - authTag
+              properties:
+                uploadId:
+                  type: string
+                encryptedTitle:
+                  type: string
+                categoryId:
+                  type: string
+                checksum:
+                  type: string
+                encryptedFileKey:
+                  type: string
+                iv:
+                  type: string
+                authTag:
+                  type: string
+      responses:
+        '201':
+          description: File merged and written successfully
+
+  /vault/documents/{id}:
+    put:
+      summary: Edit document metadata
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Update confirmed
+    delete:
+      summary: Soft delete document
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Document moved to trash
+
+  /vault/documents/{id}/restore:
+    post:
+      summary: Restore soft-deleted document
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Restored successfully
+
+  /vault/documents/search:
+    get:
+      summary: Search query matches (Index query)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+
+  /vault/documents/{id}/favorite:
+    post:
+      summary: Toggle favorite state
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+
+  /vault/documents/{id}/move:
+    put:
+      summary: Move item folder
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folderId:
+                  type: string
+      responses:
+        '200':
+          description: Moved successfully
+
+  /vault/documents/{id}/rename:
+    put:
+      summary: Change title
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                encryptedTitle:
+                  type: string
+      responses:
+        '200':
+          description: Renamed
+
+  /vault/documents/{id}/share:
+    post:
+      summary: Share document with key
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recipientEmail:
+                  type: string
+                encryptedSharedKey:
+                  type: string
+                expiresInDays:
+                  type: integer
+      responses:
+        '201':
+          description: Sharing enabled
+
+  /vault/cards:
+    post:
+      summary: Add credit card
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Card created
+
+  /vault/cards/{id}:
+    put:
+      summary: Edit card details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Delete card
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+
+  /vault/cards/search:
+    get:
+      summary: Search card metadata list
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+
+  /vault/notes:
+    post:
+      summary: Add secure note
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Note created
+    get:
+      summary: List all notes
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+
+  /vault/notes/{id}:
+    get:
+      summary: Read note body
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+    put:
+      summary: Edit note content
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Delete note
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+
+  /vault/folders:
+    post:
+      summary: Create new folder
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Folder created
+    get:
+      summary: List folders
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+
+  /vault/folders/{id}:
+    get:
+      summary: Get folder items & child structures
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+    put:
+      summary: Update folder details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Delete folder
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+
+  /admin/users:
+    get:
+      summary: Paginated list of users
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+
+  /admin/users/{id}/status:
+    put:
+      summary: Update user status
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status modified
+
+  /admin/logs:
+    get:
+      summary: Audit logs viewer
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+
+  /admin/statistics:
+    get:
+      summary: Global system stats
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+
+  /admin/storage:
+    get:
+      summary: Cloudflare R2 bucket storage tracking
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
