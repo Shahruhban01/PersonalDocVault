@@ -67,4 +67,37 @@ class CryptoService {
     final decryptedBytes = await _aesGcm.decrypt(secretBox, secretKey: secretKey);
     return utf8.decode(decryptedBytes);
   }
+
+  /// Encrypt a file's byte stream using AES-256-GCM, returning the combined ciphertext+tag and base64 nonce.
+  Future<Map<String, dynamic>> encryptFile(List<int> plaintext, List<int> keyBytes) async {
+    final secretKey = SecretKey(keyBytes);
+    final secretBox = await _aesGcm.encrypt(plaintext, secretKey: secretKey);
+    return {
+      'encryptedBytes': [...secretBox.cipherText, ...secretBox.mac.bytes],
+      'nonce': base64.encode(secretBox.nonce),
+    };
+  }
+
+  /// Decrypt a combined ciphertext+tag byte stream using AES-256-GCM and base64 nonce.
+  Future<List<int>> decryptFile(List<int> encryptedBytes, String nonce, List<int> keyBytes) async {
+    final secretKey = SecretKey(keyBytes);
+    if (encryptedBytes.length < 16) {
+      throw ArgumentError('Encrypted file bytes are too short.');
+    }
+    final cipherTextBytes = encryptedBytes.sublist(0, encryptedBytes.length - 16);
+    final macBytes = encryptedBytes.sublist(encryptedBytes.length - 16);
+    
+    final secretBox = SecretBox(
+      cipherTextBytes,
+      nonce: base64.decode(nonce),
+      mac: Mac(macBytes),
+    );
+    return await _aesGcm.decrypt(secretBox, secretKey: secretKey);
+  }
+
+  /// Compute SHA-256 checksum hex string for verifying file integrity.
+  Future<String> computeSha256Hex(List<int> bytes) async {
+    final hash = await Sha256().hash(bytes);
+    return hash.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
 }

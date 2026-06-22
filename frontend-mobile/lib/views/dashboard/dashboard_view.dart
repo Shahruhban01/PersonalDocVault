@@ -1,123 +1,263 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/theme/app_theme.dart';
+import '../../viewmodels/vault_viewmodel.dart';
 
-/// Dashboard view rendering quick access shortcuts, items list, and categories grid.
+/// Live dashboard screen displaying statistics, shortcuts, and decrypted favorited items.
 class DashboardView extends StatelessWidget {
   const DashboardView({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Register or find VaultViewModel
+    final controller = Get.put(VaultViewModel());
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Personal Vault'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {},
+            icon: const Icon(Icons.refresh_outlined),
+            onPressed: () => controller.loadVault(),
           ),
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.settings_outlined),
             onPressed: () => Get.toNamed('/settings'),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Shield Status Card (Glassmorphic look)
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceColor,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.verified_user, color: AppTheme.primaryColor, size: 40),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Zero-Knowledge Protected',
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.bold
+      body: RefreshIndicator(
+        onRefresh: () => controller.loadVault(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Shield Status Card (Glassmorphic)
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.verified_user, color: AppTheme.primaryColor, size: 40),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Zero-Knowledge Lock Active',
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.bold
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Your keys are safely locked in hardware storage.',
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
-                        ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Your key is derived in sandbox memory. Wiped on close.',
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    )
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Categories Section
+              const Text(
+                'Vault Folders',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              
+              // Category Grid with live item counters
+              Obx(() {
+                final notesCount = controller.items.where((x) => x['type'] == 'note').length;
+                final cardsCount = controller.items.where((x) => x['type'] == 'card').length;
+                final filesCount = controller.items.where((x) => x['type'] == 'document').length;
+
+                return GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 1.1,
+                  children: [
+                    _buildCategoryCard('Notes', Icons.notes_outlined, Colors.orange, '$notesCount items', () => Get.toNamed('/notes')),
+                    _buildCategoryCard('Cards', Icons.credit_card_outlined, Colors.purple, '$cardsCount cards', () => Get.toNamed('/cards')),
+                    _buildCategoryCard('Files', Icons.folder_open_outlined, Colors.green, '$filesCount files', () => Get.toNamed('/documents')),
+                  ],
+                );
+              }),
+              const SizedBox(height: 24),
+
+              // Favorites Checklist Title
+              const Text(
+                'Favorites',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              
+              // Reactive list of favorites
+              Obx(() {
+                final favorites = controller.items.where((item) => item['isFavorite'] == true).toList();
+                if (controller.isLoading.value) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+
+                if (favorites.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(vertical: 40),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceColor.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: const Column(
+                      children: [
+                        Icon(Icons.star_border_outlined, color: Colors.grey, size: 40),
+                        SizedBox(height: 8),
+                        Text('No favorite items marked.', style: TextStyle(color: Colors.grey)),
                       ],
                     ),
-                  )
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Categories Title
-            const Text(
-              'Categories',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            
-            // Category Grid
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.4,
-              children: [
-                _buildCategoryCard('Identity', Icons.badge_outlined, Colors.blue),
-                _buildCategoryCard('Cards', Icons.credit_card_outlined, Colors.purple),
-                _buildCategoryCard('Notes', Icons.notes_outlined, Colors.orange),
-                _buildCategoryCard('Files', Icons.folder_open_outlined, Colors.green),
-              ],
-            ),
-            const SizedBox(height: 24),
+                  );
+                }
 
-            // Favorites Checklist Title
-            const Text(
-              'Favorites',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            
-            // Empty placeholder for favorited entries
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              alignment: Alignment.center,
-              child: const Column(
-                children: [
-                  Icon(Icons.star_border, color: Colors.grey, size: 48),
-                  SizedBox(height: 8),
-                  Text('No favorite documents selected.', style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            )
-          ],
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: favorites.length,
+                  separatorBuilder: (c, i) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final item = favorites[index];
+                    final type = item['type']?.toString() ?? 'document';
+                    IconData icon = Icons.description_outlined;
+                    Color iconColor = Colors.green;
+                    
+                    if (type == 'note') {
+                      icon = Icons.notes_outlined;
+                      iconColor = Colors.orange;
+                    } else if (type == 'card') {
+                      icon = Icons.credit_card_outlined;
+                      iconColor = Colors.purple;
+                    }
+
+                    return Card(
+                      color: AppTheme.surfaceColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Colors.white10),
+                      ),
+                      child: ListTile(
+                        leading: Icon(icon, color: iconColor),
+                        title: FutureBuilder<String>(
+                          future: controller.decryptField(item['encryptedTitle']),
+                          builder: (context, snapshot) {
+                            return Text(
+                              snapshot.data ?? 'Decrypting...',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            );
+                          },
+                        ),
+                        subtitle: Text(
+                          '${type.toUpperCase()} • ${item['createdAt'] != null ? item['createdAt'].toString().split('T').first : ''}',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.star, color: Colors.yellow),
+                          onPressed: () => controller.toggleFavorite(item),
+                        ),
+                        onTap: () {
+                          // Route or view item depending on type
+                          if (type == 'note') {
+                            Get.toNamed('/note-detail', arguments: item);
+                          } else if (type == 'card') {
+                            Get.toNamed('/cards'); // Go to cards dashboard
+                          } else if (type == 'document') {
+                            Get.toNamed('/documents');
+                          }
+                        },
+                      ),
+                    );
+                  },
+                );
+              })
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: AppTheme.backgroundColor,
         child: const Icon(Icons.add),
-        onPressed: () {},
+        onPressed: () => _showQuickActionSheet(context),
       ),
     );
   }
 
-  Widget _buildCategoryCard(String name, IconData icon, Color color) {
+  void _showQuickActionSheet(BuildContext context) {
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: AppTheme.surfaceColor,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Add to Vault',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.note_alt_outlined, color: Colors.orange),
+              title: const Text('Create Secure Note'),
+              onTap: () {
+                Get.back();
+                Get.toNamed('/note-detail'); // Empty note detail opens editor
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.credit_card_outlined, color: Colors.purple),
+              title: const Text('Register Secure Card'),
+              onTap: () {
+                Get.back();
+                Get.toNamed('/add-card');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.upload_file_outlined, color: Colors.green),
+              title: const Text('Upload Encrypted File'),
+              onTap: () {
+                Get.back();
+                Get.toNamed('/documents');
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryCard(String name, IconData icon, Color color, String subtitle, VoidCallback onTap) {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surfaceColor,
@@ -128,18 +268,23 @@ class DashboardView extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () {},
+          onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: color, size: 28),
-                const SizedBox(height: 12),
+                Icon(icon, color: color, size: 24),
+                const SizedBox(height: 8),
                 Text(
                   name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.grey, fontSize: 10),
                 ),
               ],
             ),
