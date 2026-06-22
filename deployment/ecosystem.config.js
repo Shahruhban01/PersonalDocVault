@@ -1,5 +1,8 @@
 /**
  * @fileoverview PM2 process manager configuration for high-availability backend clustering.
+ * Production domains:
+ *   Backend : https://vaultapi.developerruhban.online
+ *   Frontend: https://vault.developerruhban.online
  */
 
 module.exports = {
@@ -7,16 +10,17 @@ module.exports = {
     {
       name: 'personal-vault-backend',
       script: './backend/src/app.js',
-      cwd: '../', // Set current working directory to repository root
-      instances: 'max', // Scale to all available CPU cores
-      exec_mode: 'cluster', // Run in cluster mode for load balancing
-      watch: false, // Do not watch files for changes in production
-      max_memory_restart: '400M', // Restart process if memory exceeds 400MB
-      autorestart: true, // Enable automatic restarts on failures
+      cwd: '../',
+      instances: 'max',         // Scale to all available CPU cores
+      exec_mode: 'cluster',     // Load-balanced cluster mode
+      watch: false,
+      max_memory_restart: '400M',
+      autorestart: true,
       env: {
         NODE_ENV: 'production',
         PORT: 5000
       },
+      env_file: './backend/.env',  // Load full .env on start
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       error_file: './logs/pm2-err.log',
       out_file: './logs/pm2-out.log',
