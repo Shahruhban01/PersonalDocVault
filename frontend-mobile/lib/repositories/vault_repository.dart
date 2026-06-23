@@ -18,7 +18,7 @@ class VaultRepository {
    */
   Future<List<dynamic>> fetchFolders(String userId) async {
     try {
-      final response = await apiService.dio.get('/vault/folders');
+      final response = await apiService.dio.get('/folders');
       if (response.statusCode == 200) {
         final List<dynamic> folders = response.data['data'];
         // Cache locally
