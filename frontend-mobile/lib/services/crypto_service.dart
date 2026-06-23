@@ -12,7 +12,7 @@ class CryptoService {
    * @returns derived 32-byte key stream list.
    */
   Future<List<int>> deriveKey(String passphrase, String saltHex) async {
-    final salt = utf8.encode(saltHex);
+    final salt = _hexToBytes(saltHex);
     final pbkdf2 = Pbkdf2(
       macAlgorithm: Hmac.sha256(),
       iterations: 100000,
@@ -23,6 +23,16 @@ class CryptoService {
       nonce: salt,
     );
     return secretKey.extractBytes();
+  }
+
+  /// Decodes hex string to raw bytes.
+  List<int> _hexToBytes(String hex) {
+    final bytes = <int>[];
+    final cleanHex = hex.replaceAll(RegExp(r'\s+'), '');
+    for (var i = 0; i < cleanHex.length; i += 2) {
+      bytes.add(int.parse(cleanHex.substring(i, i + 2), radix: 16));
+    }
+    return bytes;
   }
 
   /**

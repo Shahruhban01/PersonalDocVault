@@ -104,7 +104,9 @@ class AuthService {
       user: {
         id: user._id,
         email: user.email,
-        role: user.role
+        role: user.role,
+        name: user.name || '',
+        avatar: user.avatar || 'avatar_1'
       }
     };
   }
@@ -152,6 +154,43 @@ class AuthService {
       session.isRevoked = true;
       await session.save();
     }
+  }
+
+  /**
+   * Update user profile details.
+   * @param {string} userId - User ID.
+   * @param {object} profileData - Properties containing name and/or avatar.
+   * @returns {Promise<import('mongoose').Document>}
+   */
+  async updateProfile(userId, profileData) {
+    const { name, avatar } = profileData;
+    const update = {};
+    if (name !== undefined) update.name = name;
+    if (avatar !== undefined) update.avatar = avatar;
+
+    const user = await userRepository.updateById(userId, update);
+    if (!user) {
+      throw new AppError('User not found.', 404, 'USER_NOT_FOUND');
+    }
+    return user;
+  }
+
+  /**
+   * Change user password credentials.
+   * @param {string} userId - User ID.
+   * @param {string} newPasswordHash - The SHA-256 pre-hashed authKey from client.
+   * @returns {Promise<import('mongoose').Document>}
+   */
+  async changePassword(userId, newPasswordHash) {
+    // Generate bcrypt hash of the SHA-256 pre-hashed authKey
+    const salt = await bcrypt.genSalt(12);
+    const passwordHash = await bcrypt.hash(newPasswordHash, salt);
+
+    const user = await userRepository.updateById(userId, { password: passwordHash });
+    if (!user) {
+      throw new AppError('User not found.', 404, 'USER_NOT_FOUND');
+    }
+    return user;
   }
 }
 

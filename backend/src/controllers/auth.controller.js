@@ -128,9 +128,58 @@ const logout = async (req, res, next) => {
   }
 };
 
+/**
+ * Update profile details (name, avatar).
+ */
+const updateProfile = async (req, res, next) => {
+  try {
+    const user = await authService.updateProfile(req.user.id, req.body);
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully.',
+      data: {
+        user: {
+          id: user._id,
+          email: user.email,
+          role: user.role,
+          name: user.name,
+          avatar: user.avatar
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Change passphrase hash.
+ */
+const changePassword = async (req, res, next) => {
+  try {
+    const { newPasswordHash } = req.body;
+    if (!newPasswordHash) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'BAD_REQUEST', message: 'New password hash is required.' }
+      });
+    }
+
+    await authService.changePassword(req.user.id, newPasswordHash);
+    res.status(200).json({
+      success: true,
+      message: 'Password changed successfully.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
   refresh,
-  logout
+  logout,
+  updateProfile,
+  changePassword
 };

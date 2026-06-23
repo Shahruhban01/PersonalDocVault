@@ -33,6 +33,14 @@ const UserSchema = new mongoose.Schema({
     type: String,
     enum: ['active', 'suspended', 'pending_verification'],
     default: 'active'
+  },
+  name: {
+    type: String,
+    default: ''
+  },
+  avatar: {
+    type: String,
+    default: 'avatar_1'
   }
 }, {
   timestamps: true

@@ -21,6 +21,15 @@ class VaultViewModel extends GetxController {
   final RxBool isLoading = false.obs;
   final RxString error = ''.obs;
 
+  // Upload progress states
+  final RxDouble uploadProgress = 0.0.obs;
+  final RxString uploadStatus = 'idle'.obs; // idle, encrypting, uploading, completed, error
+  final RxString uploadingFileName = ''.obs;
+
+  // Search query & Cache for decrypted titles to enable instant synchronous search
+  final RxString searchQuery = ''.obs;
+  final Map<String, String> decryptedTitleCache = <String, String>{};
+
   @override
   void onInit() {
     super.onInit();
@@ -39,12 +48,47 @@ class VaultViewModel extends GetxController {
 
       items.assignAll(fetchedItems);
       folders.assignAll(fetchedFolders);
+
+      // Populate decrypted title cache for instant local searching
+      _preDecryptAllTitles();
     } catch (e) {
       error.value = 'Failed to load vault items.';
       debugPrint('Load vault items error: $e');
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// Decrypt all titles in the background so search filters are responsive.
+  Future<void> _preDecryptAllTitles() async {
+    for (final item in items) {
+      final itemId = item['id']?.toString() ?? item['_id']?.toString() ?? '';
+      if (itemId.isNotEmpty) {
+        final title = await decryptField(item['encryptedTitle']);
+        decryptedTitleCache[itemId] = title;
+      }
+    }
+    for (final folder in folders) {
+      final folderId = folder['id']?.toString() ?? folder['_id']?.toString() ?? '';
+      if (folderId.isNotEmpty) {
+        final name = await decryptField(folder['encryptedName']);
+        decryptedTitleCache[folderId] = name;
+      }
+    }
+  }
+
+  /// Dynamic search results computed reactively
+  List<dynamic> get filteredItems {
+    final query = searchQuery.value.trim().toLowerCase();
+    if (query.isEmpty) {
+      return items;
+    }
+    return items.where((item) {
+      final itemId = item['id']?.toString() ?? item['_id']?.toString() ?? '';
+      final cachedTitle = decryptedTitleCache[itemId]?.toLowerCase() ?? '';
+      final type = (item['type']?.toString() ?? '').toLowerCase();
+      return cachedTitle.contains(query) || type.contains(query);
+    }).toList();
   }
 
   List<int> get _masterKey {
@@ -208,17 +252,23 @@ class VaultViewModel extends GetxController {
   // ==========================================
 
   Future<bool> uploadDocument(String title, File file) async {
+    final fileName = file.path.split('/').last.split('\\').last;
     try {
+      uploadingFileName.value = fileName;
+      uploadStatus.value = 'encrypting';
+      uploadProgress.value = 0.0;
       isLoading.value = true;
+
       final fileBytes = await file.readAsBytes();
       final checksum = await _cryptoService.computeSha256Hex(fileBytes);
 
+      // Perform client-side encryption
       final encryptedData = await _cryptoService.encryptFile(fileBytes, _masterKey);
       final List<int> encBytes = encryptedData['encryptedBytes'];
       final String fileNonce = encryptedData['nonce'];
 
-      final encTitleObj = await _cryptoService.encrypt(title.trim(), _masterKey);
-      final encFileNameObj = await _cryptoService.encrypt(file.path.split('/').last.split('\\').last, _masterKey);
+      final encTitleObj = await _cryptoService.encrypt(title.trim().isEmpty ? 'Untitled Document' : title.trim(), _masterKey);
+      final encFileNameObj = await _cryptoService.encrypt(fileName, _masterKey);
 
       final formData = dio.FormData();
       formData.fields.add(MapEntry('encryptedTitle', json.encode(encTitleObj)));
@@ -235,20 +285,38 @@ class VaultViewModel extends GetxController {
         ),
       ));
 
+      uploadStatus.value = 'uploading';
       final response = await _apiService.dio.post(
         '/vault/documents/upload',
         data: formData,
         options: dio.Options(
           headers: {'Content-Type': 'multipart/form-data'},
         ),
+        onSendProgress: (sent, total) {
+          if (total > 0) {
+            uploadProgress.value = sent / total;
+          }
+        },
       );
 
       if (response.statusCode == 201) {
+        uploadStatus.value = 'completed';
         await loadVault();
+        Future.delayed(const Duration(seconds: 3), () {
+          if (uploadStatus.value == 'completed') {
+            uploadStatus.value = 'idle';
+          }
+        });
         return true;
       }
     } catch (e) {
+      uploadStatus.value = 'error';
       debugPrint('Upload document error: $e');
+      Future.delayed(const Duration(seconds: 3), () {
+        if (uploadStatus.value == 'error') {
+          uploadStatus.value = 'idle';
+        }
+      });
     } finally {
       isLoading.value = false;
     }
@@ -299,5 +367,141 @@ class VaultViewModel extends GetxController {
       isLoading.value = false;
     }
     return null;
+  }
+
+  /// Change vault passphrase, re-encrypting note titles, bodies, card credentials, and document titles
+  /// client-side using a new derived key before updating the server credential password hash.
+  Future<bool> changePassword(String currentPassword, String newPassword) async {
+    try {
+      isLoading.value = true;
+      error.value = '';
+
+      final salt = _sessionService.userData?['encryptionSalt'] ?? '';
+      // 1. Verify current passphrase matches masterKey
+      final currentDerivedKey = await _cryptoService.deriveKey(currentPassword.trim(), salt);
+      if (currentDerivedKey.toString() != _masterKey.toString()) {
+        error.value = 'Current passphrase verification failed.';
+        return false;
+      }
+
+      // 2. Derive new masterKey
+      final newMasterKey = await _cryptoService.deriveKey(newPassword.trim(), salt);
+
+      // 3. Re-encrypt notes, cards, and documents metadata in memory and push to server
+      for (final item in items) {
+        final itemId = item['id']?.toString() ?? item['_id']?.toString() ?? '';
+        final type = item['type']?.toString() ?? '';
+
+        final title = await decryptField(item['encryptedTitle']);
+        final encTitleObj = await _cryptoService.encrypt(title, newMasterKey);
+
+        final Map<String, dynamic> updateData = {
+          'encryptedTitle': json.encode(encTitleObj),
+        };
+
+        if (type == 'note') {
+          final rawPayload = item['encryptedPayload'];
+          final payload = rawPayload is String ? json.decode(rawPayload) : rawPayload;
+          final bodyEnc = payload['encryptedBody']?.toString();
+          if (bodyEnc != null) {
+            final body = await decryptField(bodyEnc);
+            final encBodyObj = await _cryptoService.encrypt(body, newMasterKey);
+            updateData['encryptedPayload'] = {
+              'encryptedBody': json.encode(encBodyObj)
+            };
+          }
+        } else if (type == 'card') {
+          final rawPayload = item['encryptedPayload'];
+          final payload = rawPayload is String ? json.decode(rawPayload) : rawPayload;
+
+          final holderName = await decryptField(payload['cardholderName_enc']?.toString());
+          final cardNumber = await decryptField(payload['cardNumber_enc']?.toString());
+          final expiryDate = await decryptField(payload['expiryDate_enc']?.toString());
+          final cvv = await decryptField(payload['cvv_enc']?.toString());
+
+          final encHolder = await _cryptoService.encrypt(holderName, newMasterKey);
+          final encNumber = await _cryptoService.encrypt(cardNumber, newMasterKey);
+          final encExpiry = await _cryptoService.encrypt(expiryDate, newMasterKey);
+          final encCvv = await _cryptoService.encrypt(cvv, newMasterKey);
+
+          updateData['encryptedPayload'] = {
+            'cardholderName_enc': json.encode(encHolder),
+            'cardNumber_enc': json.encode(encNumber),
+            'expiryDate_enc': json.encode(encExpiry),
+            'cvv_enc': json.encode(encCvv),
+          };
+        } else if (type == 'document') {
+          final encryptedFileName = item['fileMetadata']?['encryptedFileName']?.toString();
+          if (encryptedFileName != null) {
+            final filename = await decryptField(encryptedFileName);
+            final encFileNameObj = await _cryptoService.encrypt(filename, newMasterKey);
+            updateData['encryptedFileName'] = json.encode(encFileNameObj);
+          }
+        }
+
+        // Push re-encrypted item to server
+        await _apiService.dio.put('/vault/items/$itemId', data: updateData);
+      }
+
+      // 4. Send new authKey hash to server
+      final newPassData = utf8.encode(newPassword.trim());
+      final newPasswordHash = await _cryptoService.computeSha256Hex(newPassData);
+
+      final response = await _apiService.dio.put('/auth/change-password', data: {
+        'newPasswordHash': newPasswordHash,
+      });
+
+      if (response.statusCode == 200) {
+        // 5. Update session in memory and persistent secure storage
+        await _sessionService.unlock(
+          token: _sessionService.accessToken!,
+          keyBytes: newMasterKey,
+          userData: _sessionService.userData!,
+        );
+        // Clear decrypted title cache and reload
+        decryptedTitleCache.clear();
+        await loadVault();
+        return true;
+      }
+    } catch (e) {
+      error.value = 'Failed to change password: $e';
+      debugPrint('Change password re-encryption error: $e');
+    } finally {
+      isLoading.value = false;
+    }
+    return false;
+  }
+
+  /// Update user display name and avatar selection on backend
+  Future<bool> updateProfile({required String name, required String avatar}) async {
+    try {
+      isLoading.value = true;
+      error.value = '';
+
+      final response = await _apiService.dio.put('/auth/profile', data: {
+        'name': name,
+        'avatar': avatar,
+      });
+
+      if (response.statusCode == 200) {
+        final userData = Map<String, dynamic>.from(_sessionService.userData ?? {});
+        userData['name'] = name;
+        userData['avatar'] = avatar;
+
+        // Update active in-memory and hardware-backed session storage
+        await _sessionService.unlock(
+          token: _sessionService.accessToken!,
+          keyBytes: _sessionService.masterKey!,
+          userData: userData,
+        );
+        return true;
+      }
+    } catch (e) {
+      error.value = 'Failed to update profile: $e';
+      debugPrint('Profile update error: $e');
+    } finally {
+      isLoading.value = false;
+    }
+    return false;
   }
 }

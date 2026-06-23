@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import '../../views/auth/login_view.dart';
+import '../../views/auth/lock_view.dart';
 import '../../views/dashboard/dashboard_view.dart';
 import '../../views/notes/notes_list_view.dart';
 import '../../views/notes/note_detail_view.dart';
@@ -7,6 +8,7 @@ import '../../views/cards/cards_list_view.dart';
 import '../../views/cards/add_card_view.dart';
 import '../../views/documents/documents_view.dart';
 import '../../views/settings/settings_view.dart';
+import '../../views/settings/account_view.dart';
 import 'app_routes.dart';
 
 abstract class AppPages {
@@ -16,6 +18,10 @@ abstract class AppPages {
     GetPage(
       name: Routes.LOGIN,
       page: () => const LoginView(),
+    ),
+    GetPage(
+      name: Routes.LOCK,
+      page: () => const LockView(),
     ),
     GetPage(
       name: Routes.HOME,
@@ -44,6 +50,10 @@ abstract class AppPages {
     GetPage(
       name: Routes.SETTINGS,
       page: () => const SettingsView(),
+    ),
+    GetPage(
+      name: Routes.ACCOUNT,
+      page: () => const AccountView(),
     ),
   ];
 }

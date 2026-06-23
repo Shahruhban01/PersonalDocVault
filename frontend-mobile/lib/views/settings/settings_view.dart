@@ -92,7 +92,30 @@ class _SettingsViewState extends State<SettingsView> {
   Widget build(BuildContext context) {
     final user = sessionService.userData ?? {};
     final email = user['email']?.toString() ?? 'unknown@example.com';
+    final name = user['name']?.toString() ?? '';
     final role = user['role']?.toString() ?? 'user';
+    final avatarKey = user['avatar']?.toString() ?? 'avatar_1';
+
+    final Map<String, IconData> avatarIcons = {
+      'avatar_1': Icons.face,
+      'avatar_2': Icons.rocket_launch,
+      'avatar_3': Icons.pets,
+      'avatar_4': Icons.anchor,
+      'avatar_5': Icons.shield,
+      'avatar_6': Icons.sentiment_very_satisfied,
+    };
+
+    final Map<String, Color> avatarColors = {
+      'avatar_1': Colors.blue,
+      'avatar_2': Colors.redAccent,
+      'avatar_3': Colors.amber,
+      'avatar_4': Colors.teal,
+      'avatar_5': Colors.purple,
+      'avatar_6': Colors.pink,
+    };
+
+    final avatarIcon = avatarIcons[avatarKey] ?? Icons.person;
+    final avatarColor = avatarColors[avatarKey] ?? AppTheme.primaryColor;
 
     return Scaffold(
       appBar: AppBar(
@@ -103,40 +126,81 @@ class _SettingsViewState extends State<SettingsView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // User profile card
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceColor,
+            // User profile card (Interactive)
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: Column(
-                children: [
-                  const CircleAvatar(
-                    radius: 36,
-                    backgroundColor: AppTheme.primaryColor,
-                    child: Icon(Icons.person, size: 40, color: AppTheme.backgroundColor),
+                onTap: () async {
+                  await Get.toNamed('/account');
+                  setState(() {}); // Rebuild settings page to show updated name/avatar
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white10),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    email,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                    textAlign: TextAlign.center,
+                  child: Column(
+                    children: [
+                      Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          CircleAvatar(
+                            radius: 36,
+                            backgroundColor: avatarColor.withOpacity(0.2),
+                            child: Icon(avatarIcon, size: 40, color: avatarColor),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: AppTheme.primaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.edit,
+                              size: 14,
+                              color: AppTheme.backgroundColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (name.isNotEmpty) ...[
+                        Text(
+                          name,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          email,
+                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        ),
+                      ] else ...[
+                        Text(
+                          email,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white12,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          role.toUpperCase(),
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey),
+                        ),
+                      )
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white12,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      role.toUpperCase(),
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey),
-                    ),
-                  )
-                ],
+                ),
               ),
             ),
             const SizedBox(height: 24),

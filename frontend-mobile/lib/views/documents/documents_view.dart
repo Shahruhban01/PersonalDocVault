@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:open_filex/open_filex.dart';
 import '../../core/theme/app_theme.dart';
 import '../../viewmodels/vault_viewmodel.dart';
+import '../widgets/upload_progress_overlay.dart';
 
 /// Screen managing secure client-side encrypted document cabinet uploads and downloads.
 class DocumentsView extends StatefulWidget {
@@ -170,12 +171,14 @@ class _DocumentsViewState extends State<DocumentsView> {
           ),
         ],
       ),
-      body: Obx(() {
-        final docs = controller.items.where((x) => x['type'] == 'document').toList();
-
-        if (controller.isLoading.value && docs.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
+      body: Stack(
+        children: [
+          Obx(() {
+            final docs = controller.items.where((x) => x['type'] == 'document').toList();
+    
+            if (controller.isLoading.value && docs.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
         if (docs.isEmpty) {
           return Center(
@@ -254,7 +257,10 @@ class _DocumentsViewState extends State<DocumentsView> {
             );
           },
         );
-      }),
+          }),
+          const UploadProgressOverlay(),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: AppTheme.backgroundColor,
